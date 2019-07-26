@@ -194,15 +194,7 @@ public class AssetBundleEditorNew : EditorWindow
 
             get
             {
-                switch (AssetBundle.Type)
-                {
-                    case AssetBundleCollEctionNew.AssetBundleType.Asset:
-                        return CachedAssetIcon;
-                    case AssetBundleCollEctionNew.AssetBundleType.Scene:
-                        return CachedSceneIcon;
-                    default:
-                        return CachedUnknownIcon;
-                }
+                return CachedUnknownIcon;
             }
 
         }
@@ -249,7 +241,10 @@ public class AssetBundleEditorNew : EditorWindow
     private HashSet<string> m_ExpandedAssetBundleFolderNames = null;
     private HashSet<AssetBundleCollEctionNew.Asset> m_SelectedAssetsInSelectedAssetBundle = null;
     private HashSet<AssetBundleEditorControllerNew.SourceFolder> m_ExpandedSourceFolders = null;
+
+    private HashSet <AssetBundleCollEctionNew.Asset> m_ExpandedSourceAssets = null;
     private HashSet<AssetBundleEditorControllerNew.SourceAsset> m_SelectedSourceAssets = null;
+    private HashSet<AssetBundleCollEctionNew.Asset>m_SelectedAssets = null;
     private Texture m_MissingSourceAssetIcon = null;
     private HashSet<AssetBundleEditorControllerNew.SourceFolder> m_CachedSelectedSourceFolders = null;
     private HashSet<AssetBundleEditorControllerNew.SourceFolder> m_CachedUnselectedSourceFolders = null;
@@ -257,6 +252,13 @@ public class AssetBundleEditorNew : EditorWindow
     private HashSet<AssetBundleEditorControllerNew.SourceFolder> m_CachedUnassignedSourceFolders = null;
     private HashSet<AssetBundleEditorControllerNew.SourceAsset> m_CachedAssignedSourceAssets = null;
     private HashSet<AssetBundleEditorControllerNew.SourceAsset> m_CachedUnassignedSourceAssets = null;
+
+    private HashSet <AssetBundleCollEctionNew.Asset> m_CachedSelectedSourceAssets = null;
+    private HashSet <AssetBundleCollEctionNew.Asset> m_CachedUnSelectedSourceAssets = null;
+    private HashSet <AssetBundleCollEctionNew.Asset> m_Cachedassignedassets = null;
+    private HashSet <AssetBundleCollEctionNew.Asset> m_CachedUnassignedassets = null;
+
+
     private Vector2 m_AssetBundlesViewScroll = Vector2.zero;
     private Vector2 m_AssetBundleViewScroll = Vector2.zero;
     private Vector2 m_SourceAssetsViewScroll = Vector2.zero;
@@ -291,7 +293,12 @@ public class AssetBundleEditorNew : EditorWindow
         m_CachedUnassignedSourceFolders = new HashSet<AssetBundleEditorControllerNew.SourceFolder>();
         m_CachedAssignedSourceAssets = new HashSet<AssetBundleEditorControllerNew.SourceAsset>();
         m_CachedUnassignedSourceAssets = new HashSet<AssetBundleEditorControllerNew.SourceAsset>();
-
+        m_Cachedassignedassets = new HashSet<AssetBundleCollEctionNew.Asset>();
+        m_CachedUnassignedassets = new HashSet<AssetBundleCollEctionNew.Asset>();
+        m_ExpandedSourceAssets = new HashSet<AssetBundleCollEctionNew.Asset>();
+        m_CachedSelectedSourceAssets = new HashSet<AssetBundleCollEctionNew.Asset>();
+        m_CachedUnSelectedSourceAssets = new HashSet<AssetBundleCollEctionNew.Asset>();
+        m_SelectedAssets = new HashSet<AssetBundleCollEctionNew.Asset>();
         m_AssetBundleViewScroll = Vector2.zero;
         m_AssetBundlesViewScroll = Vector2.zero;
         m_InputAssetBundleName = null;
@@ -380,7 +387,7 @@ public class AssetBundleEditorNew : EditorWindow
                 EditorGUILayout.LabelField("Asset List", EditorStyles.boldLabel);
                 EditorGUILayout.BeginHorizontal("box", GUILayout.Height(position.height - 52f));
                 {
-                    DrawSourceAssetsView();
+                    DrawSourceAssetsViewNew();
                 }
                 EditorGUILayout.EndHorizontal();
                 
@@ -461,9 +468,41 @@ public class AssetBundleEditorNew : EditorWindow
         if (GUILayout.Button("Save", GUILayout.Width(80f)))
         {
             EditorUtility.DisplayCancelableProgressBar("Save", "Processing...", 0f);
-            SaveConfiguration();
+            SaveConfigurationNew();
             EditorUtility.ClearProgressBar();
         }
+    }
+    HashSet<AssetBundleCollEctionNew.Asset> selectassets = new HashSet<AssetBundleCollEctionNew.Asset>();
+    private void SaveConfigurationNew()
+    {
+        selectassets.Clear();
+
+        foreach (AssetBundleCollEctionNew.Asset asset in m_SelectedAssets) {
+            setselectassets(asset);
+        }
+        foreach (var asset in selectassets) {
+            Debug.Log(asset.FromRootPath);
+        }
+    }
+    private bool setselectassets(AssetBundleCollEctionNew.Asset asset)
+    {
+        if(asset.assetparent != null)
+        {
+            if (!m_CachedSelectedSourceAssets.Contains(asset))
+            {
+                return false;
+            }
+            else
+            {
+               if(!setselectassets(asset.assetparent))
+                {
+                    selectassets.Add(asset);
+                    return true;
+                }
+
+            }
+        }
+        return false;
     }
     private void SaveConfiguration()
     {
@@ -516,6 +555,76 @@ public class AssetBundleEditorNew : EditorWindow
         }
         EditorGUILayout.EndScrollView();
     }
+    private void DrawSourceAssetsViewNew()
+    {
+        m_CurrentSourceRowOnDraw = 0;
+        m_SourceAssetsViewScroll = EditorGUILayout.BeginScrollView(m_SourceAssetsViewScroll);
+        {
+            DrawSourceAsset(m_AssetBundleColledtion.AssetRoot);
+        }
+        EditorGUILayout.EndScrollView();
+    }
+
+    private void DrawSourceAsset(AssetBundleCollEctionNew.Asset sourceasset)
+    {
+        if (m_HideAssignedSourceAssets && IsAssignedAsset(sourceasset))
+        {
+            return;
+        }
+        float layoutwidth = 0;
+        float spacewidth = 0;
+        if (sourceasset.IsFolder)
+        {
+            layoutwidth = 12f + 14f * sourceasset.Depth;
+            spacewidth = -14f * sourceasset.Depth;
+        }
+        else
+        {
+            float emptySpace = position.width;
+            layoutwidth = emptySpace - 12f;
+            spacewidth = -emptySpace + 24f;
+        }
+
+        bool expand = IsExpandedSourceAsset(sourceasset);
+        EditorGUILayout.BeginHorizontal();
+        {
+            bool select = IsSelectedSourceAsset(sourceasset);
+            if (select != EditorGUILayout.Toggle(select, GUILayout.Width(layoutwidth)))
+            {
+                
+                select = !select;
+                SetSelectedSouceAsset(sourceasset, select);
+                
+            }
+            GUILayout.Space(spacewidth);
+            if (sourceasset.IsFolder)
+            {
+                if (expand != EditorGUI.Foldout(new Rect(18f + 14f * sourceasset.Depth, 20f * m_CurrentSourceRowOnDraw + 2f, int.MaxValue, 14f), expand, string.Empty, true))
+                {
+                    
+                    expand = !expand;
+                    SetExpandedSourceAsset(sourceasset, expand);
+                    
+                }
+            }
+            GUI.DrawTexture(new Rect(32f + 14f * sourceasset.Depth, 20f * m_CurrentSourceRowOnDraw + 1f, 16f, 16f), sourceasset.Icon);
+            EditorGUILayout.LabelField(string.Empty, GUILayout.Width(26f + 14f * sourceasset.Depth), GUILayout.Height(18f));
+            EditorGUILayout.LabelField(sourceasset.Guid);
+        }
+        EditorGUILayout.EndHorizontal();
+        
+        m_CurrentSourceRowOnDraw++;
+        
+        if (expand)
+        {
+            foreach (AssetBundleCollEctionNew.Asset subasset in sourceasset.GetAssets())
+            {
+                DrawSourceAsset(subasset);
+            }
+        }
+    }
+
+
     private void DrawSourceFolder(AssetBundleEditorControllerNew.SourceFolder sourceFolder)
     {
 
@@ -526,8 +635,9 @@ public class AssetBundleEditorNew : EditorWindow
         bool expand = IsExpandedSourceFolder(sourceFolder);
         EditorGUILayout.BeginHorizontal();
         {
-
+         
             bool select = IsSelectedSourceFolder(sourceFolder);
+
             if (select != EditorGUILayout.Toggle(select, GUILayout.Width(12f + 14f * sourceFolder.Depth)))
             {
                 select = !select;
@@ -586,6 +696,15 @@ public class AssetBundleEditorNew : EditorWindow
         EditorGUILayout.EndHorizontal();
         m_CurrentSourceRowOnDraw++;
     }
+
+    private void SetExpandedSourceAsset(AssetBundleCollEctionNew.Asset sourceAsset,bool expand){
+        if(expand){
+            m_ExpandedSourceAssets.Add(sourceAsset);
+        }else{
+            m_ExpandedSourceAssets.Remove(sourceAsset);
+        }
+    }
+
     private void SetExpandedSourceFolder(AssetBundleEditorControllerNew.SourceFolder sourcefolder, bool expand)
     {
         if (expand)
@@ -595,6 +714,48 @@ public class AssetBundleEditorNew : EditorWindow
         else
         {
             m_ExpandedSourceFolders.Remove(sourcefolder);
+        }
+    }
+    private void SetSelectedSouceAsset(AssetBundleCollEctionNew.Asset sourceAsset, bool select)
+    {
+        if (select)
+        {
+            if (!sourceAsset.IsFolder)
+            {
+                m_SelectedAssets.Add(sourceAsset);
+            }
+
+            m_CachedSelectedSourceAssets.Add(sourceAsset);
+            m_CachedUnSelectedSourceAssets.Remove(sourceAsset);
+            AssetBundleCollEctionNew.Asset asset = sourceAsset;
+            while (asset != null)
+            {
+                m_CachedUnSelectedSourceAssets.Remove(asset);
+                asset = asset.assetparent;
+            }
+        }
+        else
+        {
+            if (!sourceAsset.IsFolder)
+            {
+                m_SelectedAssets.Remove(sourceAsset);
+            }
+            m_CachedSelectedSourceAssets.Remove(sourceAsset);
+            m_CachedUnSelectedSourceAssets.Add(sourceAsset);
+            AssetBundleCollEctionNew.Asset asset = sourceAsset;
+            while (asset != null)
+            {
+                m_CachedSelectedSourceAssets.Remove(asset);
+                asset = asset.assetparent;
+            }
+        }
+        foreach (AssetBundleCollEctionNew.Asset asset in sourceAsset.GetAssets())
+        {
+            if (m_HideAssignedSourceAssets && IsAssignedAsset(asset))
+            {
+                continue;
+            }
+            SetSelectedSouceAsset(asset, select);
         }
     }
     private void SetSelectedSourceFolder(AssetBundleEditorControllerNew.SourceFolder sourceFolder, bool select)
@@ -664,6 +825,39 @@ public class AssetBundleEditorNew : EditorWindow
             }
         }
     }
+    private bool IsSelectedSourceAsset(AssetBundleCollEctionNew.Asset sourceAsset){
+        if(m_CachedSelectedSourceAssets.Contains(sourceAsset)){
+            return true;
+        }
+        if(m_CachedUnSelectedSourceAssets.Contains(sourceAsset)){
+            return false;
+        }
+        if (sourceAsset.IsFolder)
+        {
+            foreach (AssetBundleCollEctionNew.Asset subSourceAsset in sourceAsset.GetAssets())
+            {
+                if (m_HideAssignedSourceAssets && IsAssignedSourceAsset(subSourceAsset))
+                {
+                    continue;
+                }
+                if (!m_SelectedAssets.Contains(subSourceAsset))
+                {
+                    m_CachedUnSelectedSourceAssets.Add(sourceAsset);
+                    return false;
+                }
+            }
+        }
+        else
+        {
+            if (!m_SelectedAssets.Contains(sourceAsset))
+            {
+                m_CachedUnSelectedSourceAssets.Add(sourceAsset);
+                return false;
+            }
+        }
+        m_CachedSelectedSourceAssets.Add(sourceAsset);
+        return true;
+    }
     private bool IsSelectedSourceFolder(AssetBundleEditorControllerNew.SourceFolder sourceFolder)
     {
         if (m_CachedSelectedSourceFolders.Contains(sourceFolder))
@@ -701,7 +895,6 @@ public class AssetBundleEditorNew : EditorWindow
         m_CachedSelectedSourceFolders.Add(sourceFolder);
         return true;
     }
-
     private bool IsSelectedSourceAsset(AssetBundleEditorControllerNew.SourceAsset sourceAsset)
     {
         return m_SelectedSourceAssets.Contains(sourceAsset);
@@ -709,6 +902,9 @@ public class AssetBundleEditorNew : EditorWindow
     private bool IsExpandedSourceFolder(AssetBundleEditorControllerNew.SourceFolder sourceFolder)
     {
         return m_ExpandedSourceFolders.Contains(sourceFolder);
+    }
+    private bool IsExpandedSourceAsset(AssetBundleCollEctionNew.Asset sourceAsset){
+        return m_ExpandedSourceAssets.Contains(sourceAsset);
     }
     private bool IsAssignedSourceFolder(AssetBundleEditorControllerNew.SourceFolder sourceFolder)
     {
@@ -738,6 +934,56 @@ public class AssetBundleEditorNew : EditorWindow
         }
         m_CachedAssingnedSourceFolders.Add(sourceFolder);
         return true;
+    }
+    private bool IsAssignedAsset(AssetBundleCollEctionNew.Asset sourceAsset){
+        if(m_Cachedassignedassets.Contains(sourceAsset)){
+            return true;
+        }
+        if(m_CachedUnassignedassets.Contains(sourceAsset)){
+            return false;
+        }
+        if (sourceAsset.IsFolder)
+        {
+            foreach (AssetBundleCollEctionNew.Asset asset in sourceAsset.GetAssets())
+            {
+                if (!IsAssignedAsset(asset))
+                {
+                    m_CachedUnassignedassets.Add(asset);
+                    return false;
+                }
+            }
+        }
+        else
+        {
+            if (!IsAssignedAsset(sourceAsset))
+            {
+                m_CachedUnassignedassets.Add(sourceAsset);
+                return false;
+            }
+        }
+        m_Cachedassignedassets.Add(sourceAsset);
+        return true;
+    }
+    private bool IsAssignedSourceAsset(AssetBundleCollEctionNew.Asset sourceAsset){
+        if(m_Cachedassignedassets.Contains(sourceAsset)){
+            return true;
+        }
+        if(m_CachedUnassignedassets.Contains(sourceAsset)){
+            return false;
+        }
+        if (sourceAsset.IsFolder)
+        {
+            foreach(AssetBundleCollEctionNew.Asset asset in sourceAsset.GetAssets())
+            {
+               if(!IsAssignedSourceAsset(asset))
+               {
+                    return false;
+               }
+            }
+            return true;
+        }
+       
+        return m_AssetBundleColledtion.GetAsset(sourceAsset.Guid) != null;
     }
     private bool IsAssignedSourceAsset(AssetBundleEditorControllerNew.SourceAsset sourceAsset)
     {
@@ -791,18 +1037,6 @@ public class AssetBundleEditorNew : EditorWindow
             if (GUILayout.Button("Remove", GUILayout.Width(65f)))
             {
                 m_MenuState = AssetBundleEditorNew.MenuState.Remove;
-            }
-            if (m_SelectedAssetBundle == null)
-            {
-                EditorGUILayout.EnumPopup(AssetBundleCollEctionNew.AssetBundleLoadType.LoadFromFile);
-            }
-            else
-            {
-                AssetBundleCollEctionNew.AssetBundleLoadType loadType = (AssetBundleCollEctionNew.AssetBundleLoadType)EditorGUILayout.EnumPopup(m_SelectedAssetBundle.LoadType);
-                if (loadType != m_SelectedAssetBundle.LoadType)
-                {
-                    SetAssetBundleLoadType(loadType);
-                }
             }
         }
         EditorGUI.EndDisabledGroup();
@@ -929,7 +1163,7 @@ public class AssetBundleEditorNew : EditorWindow
             assetBundleVariant = null;
         }
         string assetBundleFullName = GetAssetBundleFullName(assetBundleName, assetBundleVariant);
-        if (m_AssetBundleColledtion.AddAssetBundle(assetBundleName, assetBundleVariant, AssetBundleCollEctionNew.AssetBundleLoadType.LoadFromFile, false))
+        if (m_AssetBundleColledtion.AddAssetBundle(assetBundleName, assetBundleVariant))
         {
             if (refresh)
             {
@@ -946,19 +1180,7 @@ public class AssetBundleEditorNew : EditorWindow
     {
         return assetBundleVariant != null ? string.Format("{0}.{1}", assetBundleName, assetBundleVariant) : assetBundleName;
     }
-    private void SetAssetBundleLoadType(AssetBundleCollEctionNew.AssetBundleLoadType loadtype)
-    {
-        string assetBundleFullName = m_SelectedAssetBundle.FullName;
-        if (m_AssetBundleColledtion.SetAssetBundleLoadType(m_SelectedAssetBundle.Name, m_SelectedAssetBundle.Variant, loadtype))
-        {
-            Debug.Log(string.Format("Set AssetBundle '{0}' load type to '{1}' success.", assetBundleFullName, loadtype.ToString()));
-        }
-        else
-        {
-            Debug.LogWarning(string.Format("Set AssetBundle '{0}' load type to '{1}' failure.", assetBundleFullName, loadtype.ToString()));
-
-        }
-    }
+    
     private void DrawAssetBundleView()
     {
         m_AssetBundleViewScroll = EditorGUILayout.BeginScrollView(m_AssetBundleViewScroll);
@@ -1101,5 +1323,5 @@ public class AssetBundleEditorNew : EditorWindow
             m_ExpandedAssetBundleFolderNames.Remove(assetBundleFolder.FromRootPath);
         }
     }
-
+    
 }
