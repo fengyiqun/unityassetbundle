@@ -4,6 +4,7 @@ using System.Linq;
 using System.Xml;
 using UnityEditor;
 using UnityEngine;
+using System.IO;
 public class AssetBundleCollEctionNew {
 
     public sealed class Asset {
@@ -188,17 +189,61 @@ public class AssetBundleCollEctionNew {
             return a.Guid.CompareTo (b.Guid);
         }
     }
+    static string ENTRY = "MAIN.bundle";
+    public class AssetBundleInfo{
+        public AssetBundleInfo(){
+
+        }
+        public string Entry{get;set;}
+        public Dictionary<string,string[]> AssetBundles{get;set;}
+    }
+
     public class AssetBundleCollection {
         private const string AssetBundleNamePattern = @"^([A-Za-z0-9\._-]+/)*[A-Za-z0-9\._-]+$";
         private const string AssetBundleVariantPattern = @"^[a-z0-9_-]+$";
         private const string PostfixOfScene = ".unity";
         private static string m_ConfigurationPath = "";
+
+        private static string m_configurationpathnew = "";
         private SortedDictionary<string, AssetBundle> m_AssetBundles;
         private SortedDictionary<string, Asset> m_Assets;
         public AssetBundleCollection () {
             m_ConfigurationPath = TsianFramework.Utility.Path.GetCombinePath (Application.dataPath, "App/Configs/AssetBundleCollection.xml");
             m_AssetBundles = new SortedDictionary<string, AssetBundle> ();
             m_Assets = new SortedDictionary<string, Asset> ();
+m_configurationpathnew = TsianFramework.Utility.Path.GetCombinePath (Application.dataPath, "App/Configs/AssetBundleCollectionNEW.xml");
+
+        }
+        public void loadassetbundle(){
+            /* 
+            var str = File.ReadAllText(m_configurationpathnew);
+            var reader = new YamlDotNet.Serialization.Deserializer();
+            var abm = reader.Deserialize<AssetBundleInfo>(str);
+            foreach(var s in abm.AssetBundles){
+                AddAssetBundleNew(s.Key,null);
+                 foreach(var g in s.Value){
+                    
+                    if (!AssignAsset (g, s.Key, null)) {
+                        Debug.LogWarning (string.Format ("Can not assign asset '{0}' to AssetBundle '{1}'.", g, s.Key));
+                        continue;
+                    }
+                 }
+            }
+            */
+        }
+        public void exportassetbundle(){
+            /* 
+            AssetBundleInfo abi = new AssetBundleInfo();
+            var abs = AssetDatabase.GetAllAssetBundleNames();
+            for(int i = 0;i<abs.Length;i++){
+                var files = AssetDatabase.GetAssetPathsFromAssetBundle(abs[i]);
+                abi.AssetBundles[abs[i]] = files;
+               
+            }
+            var writer = new YamlDotNet.Serialization.Serializer();
+            string str = writer.Serialize(abi);
+            File.WriteAllText(m_configurationpathnew,str);
+            */
         }
         public int assetBundlecount {
             get {
@@ -365,6 +410,17 @@ public class AssetBundleCollEctionNew {
             m_AssetBundles.Add (assetbundle.FullName, assetbundle);
             return true;
         }
+        public bool AddAssetBundleNew(string assetBundleName,string assetBundleVariant){
+            if(!IsValidAssetBundleName(assetBundleName,assetBundleVariant)){
+                return false;
+            }
+            if(!IsAvailableBundleName(assetBundleName,assetBundleVariant,null)){
+                return false;
+            }
+            AssetBundle assetbundle = AssetBundle.Create(assetBundleName,assetBundleVariant);
+            m_AssetBundles.Add(assetbundle.FullName,assetbundle);
+            return true;
+        }
         public bool RenameAssetBundle (string oldAssetBundleName, string oldAssetBundleVariant, string newAssetbundleName, string newassetbundleVariant) {
             if (!IsValidAssetBundleName (oldAssetBundleName, oldAssetBundleVariant) || !IsValidAssetBundleName (newAssetbundleName, newassetbundleVariant)) {
                 return false;
@@ -438,6 +494,15 @@ public class AssetBundleCollEctionNew {
                 return false;
             }
             return m_Assets.ContainsKey (assetGuid);
+        }
+        public bool AssignAssetNew(string assetguid,string assetbundlename,string assetbundlevariant){
+             if (string.IsNullOrEmpty (assetguid)) {
+                return false;
+            }
+            if (!IsValidAssetBundleName (assetbundlename, assetbundlevariant)) {
+                return false;
+            }
+            return true;
         }
         public bool AssignAsset (string assetGuid, string assetBundleName, string assetBundleVariant) {
             if (string.IsNullOrEmpty (assetGuid)) {
