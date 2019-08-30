@@ -16,6 +16,14 @@ public class AssetBundleCollEctionNew {
             m_Assets = new List<Asset> ();
             assetparent = asset;
         }
+        private Asset(string name,string guid, Asset asset, AssetBundle assetbundle)
+        {
+            Name = name;
+            Guid = guid;
+            AssetBundle = assetbundle;
+            m_Assets = new List<Asset>();
+            assetparent = asset;
+        }
 
         public Asset assetparent{
             get;
@@ -39,7 +47,7 @@ public class AssetBundleCollEctionNew {
         public void AddAsset (Asset asset) {
             m_Assets.Add (asset);
         }
-        public Asset AddAsset(string name){
+        public Asset AddAsset(string name,string guid){
             if(string.IsNullOrEmpty(name)){
                 Debug.LogWarning("Asset name is invalid");
             }
@@ -47,7 +55,7 @@ public class AssetBundleCollEctionNew {
             if (asset!= null){
                 Debug.LogWarning("asset is already exist"+name);
             }
-            asset = Asset.Create(name,this);
+            asset = Asset.Create(name,guid,this);
             m_Assets.Add(asset);
             return asset;
         }
@@ -63,7 +71,7 @@ public class AssetBundleCollEctionNew {
         }
         public string FromRootPath{
             get{
-                return assetparent == null ? string.Empty:(assetparent.assetparent == null ? Guid :string.Format("{0}/{1}",assetparent.FromRootPath,Guid));
+                return assetparent == null ? string.Empty:(assetparent.assetparent == null ? Name : string.Format("{0}/{1}",assetparent.FromRootPath, Name));
             }
         }
         public int Depth{
@@ -72,20 +80,20 @@ public class AssetBundleCollEctionNew {
             }
         }
         public string Name {
-            get {
-                return AssetDatabase.GUIDToAssetPath (Guid);
-            }
+
+            get;
+            private set;
         }
         public AssetBundle AssetBundle {
             get;
             private set;
         }
-        public Asset GetAsset(string guid){
-            if(string.IsNullOrEmpty(guid)){
+        public Asset GetAsset(string name){
+            if(string.IsNullOrEmpty(name)){
                 Debug.Log("asset name is invalid");
             }
             foreach(Asset asset in  m_Assets){
-                if(asset.Guid == guid)
+                if(asset.Name == name)
                 {
                     return asset;
                 }
@@ -95,8 +103,16 @@ public class AssetBundleCollEctionNew {
         public static Asset Create (string guid) {
             return new Asset (guid,null, null);
         }
-         public static Asset Create (string guid,Asset asset) {
+        public static Asset Create(string guid,string name)
+        {
+            return new Asset(name,guid, null, null);
+        }
+        public static Asset Create (string guid,Asset asset) {
             return new Asset (guid,asset, null);
+        }
+        public static Asset Create(string name,string guid,Asset asset)
+        {
+            return new Asset(name, guid, asset, null);
         }
         public static Asset Create (string guid,Asset asset, AssetBundle assetBundle) {
             return new Asset (guid,asset, assetBundle);
@@ -112,7 +128,11 @@ public class AssetBundleCollEctionNew {
                 {
                     if (m_Assets.Count <= 0)
                     {
-                        string iconpath = "Assets/" + FromRootPath;
+                        string iconpath = "Assets/" + FromRootPath; ;
+                        if (string.IsNullOrEmpty(FromRootPath))
+                        {
+                            iconpath = Name;
+                        }
                         m_CachedIcon = AssetDatabase.GetCachedIcon(iconpath);
                     }
                     else
@@ -148,10 +168,7 @@ public class AssetBundleCollEctionNew {
             }
         }
 
-        public bool Packed {
-            get;
-            private set;
-        }
+        
         public static AssetBundle Create (string name, string variant) {
             return new AssetBundle (name, variant);
         }
@@ -163,9 +180,7 @@ public class AssetBundleCollEctionNew {
             Variant = variant;
         }
 
-        public void SetPacked (bool packed) {
-            Packed = packed;
-        }
+      
         public void AssignAsset (Asset asset) {
             if (asset.AssetBundle != null) {
                 asset.AssetBundle.Unassign (asset);
@@ -192,10 +207,10 @@ public class AssetBundleCollEctionNew {
     static string ENTRY = "MAIN.bundle";
     public class AssetBundleInfo{
         public AssetBundleInfo(){
-
+            AssetBundles = new Dictionary<string, List<string>>();
         }
         public string Entry{get;set;}
-        public Dictionary<string,string[]> AssetBundles{get;set;}
+        public Dictionary<string,List<string>> AssetBundles{get;set;}
     }
 
     public class AssetBundleCollection {
@@ -207,44 +222,81 @@ public class AssetBundleCollEctionNew {
         private static string m_configurationpathnew = "";
         private SortedDictionary<string, AssetBundle> m_AssetBundles;
         private SortedDictionary<string, Asset> m_Assets;
-        public AssetBundleCollection () {
-            m_ConfigurationPath = TsianFramework.Utility.Path.GetCombinePath (Application.dataPath, "App/Configs/AssetBundleCollection.xml");
-            m_AssetBundles = new SortedDictionary<string, AssetBundle> ();
-            m_Assets = new SortedDictionary<string, Asset> ();
-m_configurationpathnew = TsianFramework.Utility.Path.GetCombinePath (Application.dataPath, "App/Configs/AssetBundleCollectionNEW.xml");
-
+        private AssetBundleInfo assetbundleinfo;
+        public AssetBundleCollection()
+        {
+            assetbundleinfo = new AssetBundleInfo();
+            m_ConfigurationPath = TsianFramework.Utility.Path.GetCombinePath(Application.dataPath, "App/Configs/AssetBundleCollection.xml");
+            m_AssetBundles = new SortedDictionary<string, AssetBundle>();
+            m_Assets = new SortedDictionary<string, Asset>();
+            m_configurationpathnew = TsianFramework.Utility.Path.GetCombinePath(Application.dataPath, "App/Configs/ABT.yaml");
+           
         }
-        public void loadassetbundle(){
-            /* 
-            var str = File.ReadAllText(m_configurationpathnew);
-            var reader = new YamlDotNet.Serialization.Deserializer();
-            var abm = reader.Deserialize<AssetBundleInfo>(str);
-            foreach(var s in abm.AssetBundles){
-                AddAssetBundleNew(s.Key,null);
-                 foreach(var g in s.Value){
-                    
-                    if (!AssignAsset (g, s.Key, null)) {
-                        Debug.LogWarning (string.Format ("Can not assign asset '{0}' to AssetBundle '{1}'.", g, s.Key));
+
+        public void parse(string path)
+        {
+            if (!File.Exists(path))
+            {
+                FileStream filestream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                filestream.Close();
+
+            }
+            var str = File.ReadAllText(path);
+            if (!string.IsNullOrEmpty(str))
+            {
+                var reader = new YamlDotNet.Serialization.Deserializer();
+                assetbundleinfo = reader.Deserialize<AssetBundleInfo>(str);
+                foreach (var value in assetbundleinfo.AssetBundles)
+                {
+                    if (!AddAssetBundleNew(value.Key, null))
+                    {
+                        Debug.LogWarning(string.Format("Can not add assetBundle '{0}'.", value.Key));
                         continue;
                     }
-                 }
+                    for(int i  = 0; i < value.Value.Count; i++)
+                    {
+                        if (!AssignAssetNew(value.Value[i], value.Key, null))
+                        {
+                            Debug.LogWarning(string.Format("Can not Assign asset '{0}' to assetBundle '{1}'.", value.Value[i], value.Key));
+                            continue;
+                        }
+                    }
+                }
             }
-            */
+            
         }
-        public void exportassetbundle(){
-            /* 
-            AssetBundleInfo abi = new AssetBundleInfo();
-            var abs = AssetDatabase.GetAllAssetBundleNames();
-            for(int i = 0;i<abs.Length;i++){
-                var files = AssetDatabase.GetAssetPathsFromAssetBundle(abs[i]);
-                abi.AssetBundles[abs[i]] = files;
-               
+        private void SaveNew()
+        {
+            AssetBundleInfo assetbundleinfo = new AssetBundleInfo();
+            foreach (var assetbundle in m_AssetBundles)
+            {
+                List<string> asset = new List<string>();
+                for (int i = 0; i < assetbundle.Value.GetAssets().Length; i++)
+                {
+                    asset.Add(assetbundle.Value.GetAssets()[i].Name);
+                }
+                if (assetbundleinfo.AssetBundles.ContainsKey(assetbundle.Key))
+                {
+                    UnityEngine.Debug.LogWarning(assetbundle.Key);
+                    continue;
+                }
+                assetbundleinfo.AssetBundles.Add(assetbundle.Key, asset);
             }
-            var writer = new YamlDotNet.Serialization.Serializer();
-            string str = writer.Serialize(abi);
-            File.WriteAllText(m_configurationpathnew,str);
-            */
+           save(assetbundleinfo, m_configurationpathnew);
         }
+        public void save(AssetBundleInfo abi,string path)
+        {
+            var witer = new YamlDotNet.Serialization.Serializer();
+            File.WriteAllText(path, witer.Serialize(abi));
+        }
+        public AssetBundleInfo GetAssetBundleInfo
+        {
+            get { return assetbundleinfo; }
+            set { assetbundleinfo = value; }
+        }
+
+
+        
         public int assetBundlecount {
             get {
                 return m_AssetBundles.Count;
@@ -259,126 +311,37 @@ m_configurationpathnew = TsianFramework.Utility.Path.GetCombinePath (Application
             m_AssetBundles.Clear ();
             m_Assets.Clear ();
         }
-        public bool Load () {
-            Clear ();
-            if (!System.IO.File.Exists (m_ConfigurationPath)) {
-                return false;
-            }
-            try {
-                System.Xml.XmlDocument xmlDocument = new System.Xml.XmlDocument ();
-                xmlDocument.Load (m_ConfigurationPath);
-                System.Xml.XmlNode xmlRoot = xmlDocument.SelectSingleNode ("UnityTsianFramework");
-                System.Xml.XmlNode xmlCollection = xmlRoot.SelectSingleNode ("AssetBundleCollection");
-                System.Xml.XmlNode xmlAssetBundles = xmlCollection.SelectSingleNode ("AssetBundles");
-                System.Xml.XmlNode xmlAssets = xmlCollection.SelectSingleNode ("Assets");
-
-                System.Xml.XmlNodeList xmlNodeList = null;
-                System.Xml.XmlNode xmlNode = null;
-                int count = 0;
-                xmlNodeList = xmlAssetBundles.ChildNodes;
-                count = xmlNodeList.Count;
-                for (int i = 0; i < count; i++) {
-                    xmlNode = xmlNodeList.Item (i);
-                    string assetBundleName = xmlNode.Attributes.GetNamedItem ("Name").Value;
-                    string assetBundleVariant = xmlNode.Attributes.GetNamedItem ("Variant") != null ? xmlNode.Attributes.GetNamedItem ("Variant").Value : null;
-                    int assetBundleLoadType = 0;
-                    if (xmlNode.Attributes.GetNamedItem ("LoadType") != null) {
-                        int.TryParse (xmlNode.Attributes.GetNamedItem ("LoadType").Value, out assetBundleLoadType);
-                    }
-                    bool assetbundlePacked = false;
-                    if (xmlNode.Attributes.GetNamedItem ("Packed") != null) {
-                        bool.TryParse (xmlNode.Attributes.GetNamedItem ("Packed").Value, out assetbundlePacked);
-                    }
-                    if (!AddAssetBundle (assetBundleName, assetBundleVariant)) {
-                        string assetBundleFullName = assetBundleVariant != null ? string.Format ("{0}.{1}", assetBundleName, assetBundleVariant) : assetBundleName;
-                        Debug.LogWarning (string.Format ("Can not add AssetBundle '{0}'.", assetBundleFullName));
+        public bool Load()
+        {
+            /*
+            UnityTsianFramework.Editor.AssetBundleTools.AssetBundleCollection m_controller = new UnityTsianFramework.Editor.AssetBundleTools.AssetBundleCollection();
+            if (m_controller.Load())
+            {
+                for(int i = 0; i < m_controller.GetAssetBundles().Length; i++)
+                {
+                    if (!AddAssetBundleNew(m_controller.GetAssetBundles()[i].FullName, null))
+                    {
                         continue;
+                    }
+                    for (int ii = 0; ii < m_controller.GetAssetBundles()[i].GetAssets().Length; ii++)
+                    {
+                        if (!AssignAssetNew(m_controller.GetAssetBundles()[i].GetAssets()[ii].Guid, m_controller.GetAssetBundles()[i].Name, null))
+                        {
+                            //Debug.LogWarning(string.Format("Can not Assign asset '{0}' to assetBundle '{1}'.", value.Value[i], value.Key));
+                            continue;
+                        }
                     }
                 }
-                xmlNodeList = xmlAssets.ChildNodes;
-                count = xmlNodeList.Count;
-                for (int i = 0; i < count; i++) {
-                    xmlNode = xmlNodeList.Item (i);
-                    if (xmlNode.Name != "Asset") {
-                        continue;
-                    }
-                    string assetGuid = xmlNode.Attributes.GetNamedItem ("Guid").Value;
-                    assetGuid = AssetDatabase.AssetPathToGUID (assetGuid);
-                    string assetBundleName = xmlNode.Attributes.GetNamedItem ("AssetBundleName").Value;
-                    string assetbundlevariant = xmlNode.Attributes.GetNamedItem ("AssetBundleVariant") != null ? xmlNode.Attributes.GetNamedItem ("AssetBundleVariant").Value : null;
-                    if (!AssignAsset (assetGuid, assetBundleName, assetbundlevariant)) {
-                        string assetBundleFullName = assetbundlevariant != null ? string.Format ("{0}.{1}", assetBundleName, assetbundlevariant) : assetBundleName;
-                        Debug.LogWarning (string.Format ("Can not assign asset '{0}' to AssetBundle '{1}'.", assetGuid, assetBundleFullName));
-                        continue;
-                    }
-                }
-                return true;
-            } catch {
-                Debug.LogWarning ("LoadAssetBundleCollent ");
-                System.IO.File.Delete (m_ConfigurationPath);
-
-                return false;
-            }
+                
+            }*/
+            parse(m_configurationpathnew);
+            return false;
 
         }
         public bool Save () {
-            try {
-                XmlDocument xmlDocument = new XmlDocument ();
-                xmlDocument.AppendChild (xmlDocument.CreateXmlDeclaration ("1.0", "UTF-8", null));
-                XmlElement xmlRoot = xmlDocument.CreateElement ("UnityTsianFramework");
-                xmlDocument.AppendChild (xmlRoot);
-                XmlElement xmlCollection = xmlDocument.CreateElement ("AssetBundleCollection");
-                xmlRoot.AppendChild (xmlCollection);
-                XmlElement xmlAssetBundles = xmlDocument.CreateElement ("AssetBundles");
-                xmlCollection.AppendChild (xmlAssetBundles);
-                XmlElement xmlAssets = xmlDocument.CreateElement ("Assets");
-                xmlCollection.AppendChild (xmlAssets);
-                XmlElement xmlElement = null;
-                XmlAttribute xmlAttribute = null;
-                foreach (AssetBundle assetbundle in m_AssetBundles.Values) {
-                    xmlElement = xmlDocument.CreateElement ("AssetBundle");
-                    xmlAttribute = xmlDocument.CreateAttribute ("Name");
-                    xmlAttribute.Value = assetbundle.Name;
-                    xmlElement.Attributes.SetNamedItem (xmlAttribute);
-                    if (assetbundle.Variant != null) {
-                        xmlAttribute = xmlDocument.CreateAttribute ("Variant");
-                        xmlAttribute.Value = assetbundle.Variant;
-                        xmlElement.Attributes.SetNamedItem (xmlAttribute);
-                    }
-
-                    xmlElement.Attributes.SetNamedItem (xmlAttribute);
-                    xmlAssetBundles.AppendChild (xmlElement);
-                }
-                foreach (Asset asset in m_Assets.Values) {
-                    xmlElement = xmlDocument.CreateElement ("Asset");
-                    xmlAttribute = xmlDocument.CreateAttribute ("Guid");
-                    xmlAttribute.Value = AssetDatabase.GUIDToAssetPath (asset.Guid);
-                    xmlElement.Attributes.SetNamedItem (xmlAttribute);
-                    xmlAttribute = xmlDocument.CreateAttribute ("AssetBundleName");
-                    xmlAttribute.Value = asset.AssetBundle.Name;
-                    xmlElement.Attributes.SetNamedItem (xmlAttribute);
-                    if (asset.AssetBundle.Variant != null) {
-                        xmlAttribute = xmlDocument.CreateAttribute ("AssetBundleVariant");
-                        xmlAttribute.Value = asset.AssetBundle.Variant;
-                        xmlElement.Attributes.SetNamedItem (xmlAttribute);
-                    }
-                    xmlAssets.AppendChild (xmlElement);
-                }
-                string confifurationDirectorName = System.IO.Path.GetDirectoryName (m_ConfigurationPath);
-                if (!System.IO.Directory.Exists (confifurationDirectorName)) {
-                    System.IO.Directory.CreateDirectory (confifurationDirectorName);
-                }
-                xmlDocument.Save (m_ConfigurationPath);
-                AssetDatabase.Refresh ();
-                return true;
-
-            } catch {
-                if (System.IO.File.Exists (m_ConfigurationPath)) {
-                    System.IO.File.Delete (m_ConfigurationPath);
-                }
-
-                return false;
-            }
+            
+            SaveNew();
+            return false;
         }
         public AssetBundle[] GetAssetBundles () {
             return m_AssetBundles.Values.ToArray ();
@@ -495,13 +458,30 @@ m_configurationpathnew = TsianFramework.Utility.Path.GetCombinePath (Application
             }
             return m_Assets.ContainsKey (assetGuid);
         }
-        public bool AssignAssetNew(string assetguid,string assetbundlename,string assetbundlevariant){
-             if (string.IsNullOrEmpty (assetguid)) {
+        public bool AssignAssetNew(string assetname, string assetbundlename,string assetbundlevariant){
+             if (string.IsNullOrEmpty (assetname)) {
                 return false;
             }
             if (!IsValidAssetBundleName (assetbundlename, assetbundlevariant)) {
                 return false;
             }
+            AssetBundle assetbundle = GetAssetBundle(assetbundlename, assetbundlevariant);
+            if(assetbundle == null)
+            {
+                return false;
+            }
+            string assetguid = AssetDatabase.AssetPathToGUID(assetname);
+            if (string.IsNullOrEmpty(assetguid))
+            {
+                return false;
+            }
+            Asset asset = GetAsset(assetguid);
+            if(asset == null)
+            {
+                asset = Asset.Create(assetguid, assetname);
+                m_Assets.Add(asset.Guid, asset);
+            }
+            assetbundle.AssignAsset(asset);
             return true;
         }
         public bool AssignAsset (string assetGuid, string assetBundleName, string assetBundleVariant) {
@@ -522,7 +502,7 @@ m_configurationpathnew = TsianFramework.Utility.Path.GetCombinePath (Application
 
             Asset asset = GetAsset (assetGuid);
             if (asset == null) {
-                asset = Asset.Create (assetGuid);
+                asset = Asset.Create (assetGuid,assetName);
                 m_Assets.Add (asset.Guid, asset);
             }
             assetbundle.AssignAsset (asset);

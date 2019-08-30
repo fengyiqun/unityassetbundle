@@ -6,152 +6,7 @@ using UnityEditor;
 using UnityEngine;
 public class AssetBundleEditorControllerNew {
 
-    public sealed class SourceAsset {
-        private Texture m_CachedIcon;
-        public SourceAsset (string guid, string path, string name, SourceFolder folder) {
-            if (folder == null) {
-                Debug.LogWarning ("Source asset folder is invalid.");
-            }
-            Guid = guid;
-            Path = path;
-            Name = name;
-            Folder = folder;
-            m_CachedIcon = null;
-        }
-        public string Guid {
-            get;
-            private set;
-        }
-        public string Path {
-            get;
-            private set;
-        }
-        public string Name {
-            get;
-            private set;
-        }
-        public SourceFolder Folder {
-            get;
-            private set;
-        }
-        public string FromRootPath {
-            get {
-                return (Folder.Folder == null ? Name : string.Format ("{0}/{1}", Folder.FromRootPath, Name));
-            }
-        }
-        public int Depth {
-            get {
-                return Folder != null ? Folder.Depth + 1 : 0;
-            }
-        }
-        public Texture Icon {
-            get {
-                if (m_CachedIcon == null) {
-                    m_CachedIcon = AssetDatabase.GetCachedIcon (Path);
-                }
-                return m_CachedIcon;
-            }
-        }
-    }
-    public sealed class SourceFolder {
-        private static Texture s_CachedIcon = null;
-        private readonly List<SourceFolder> m_Folders;
-        private readonly List<SourceAsset> m_Assets;
-        public SourceFolder (string name, SourceFolder folder) {
-            m_Folders = new List<SourceFolder> ();
-            m_Assets = new List<SourceAsset> ();
-            Name = name;
-            Folder = folder;
-        }
-        public string Name {
-            get;
-            private set;
-        }
-        public SourceFolder Folder {
-            get;
-            private set;
-        }
-        public string FromRootPath {
-            get {
-                return Folder == null ? string.Empty : (Folder.Folder == null ? Name : string.Format ("{0}/{1}", Folder.FromRootPath, Name));
-            }
-        }
-        public int Depth {
-            get {
-                return Folder != null ? Folder.Depth + 1 : 0;
-            }
-        }
-        public static Texture Icon {
-            get {
-                if (s_CachedIcon == null) {
-                    s_CachedIcon = AssetDatabase.GetCachedIcon ("Assets");
-                }
-                return s_CachedIcon;
-            }
-        }
-        public void Clear () {
-            m_Assets.Clear ();
-            m_Folders.Clear ();
-        }
-        public SourceFolder[] GetFolders () {
-            return m_Folders.ToArray ();
-        }
-        public SourceFolder GetFolder (string name) {
-            if (string.IsNullOrEmpty (name)) {
-                Debug.LogWarning ("Source folder name is invalid." + name);
-            }
-            foreach (SourceFolder folder in m_Folders) {
-                if (folder.Name == name) {
-                    return folder;
-                }
-            }
-            return null;
-        }
-        public SourceFolder AddFolder (string name) {
-            if (string.IsNullOrEmpty (name)) {
-                Debug.LogWarning ("Source folder name is invalid." + name);
-            }
-            SourceFolder folder = GetFolder (name);
-            if (folder != null) {
-                Debug.Log ("Source folder is already exist." + name);
-            }
-            folder = new SourceFolder (name, this);
-            m_Folders.Add (folder);
-            return folder;
-        }
-        public SourceAsset[] GetAssets () {
-            return m_Assets.ToArray ();
-        }
-        public SourceAsset GetAsset (string name) {
-            if (string.IsNullOrEmpty (name)) {
-                Debug.LogWarning ("Source asset name is invalid." + name);
-            }
-            foreach (SourceAsset asset in m_Assets) {
-                if (asset.Name == name) {
-                    return asset;
-                }
-            }
-            return null;
-        }
-        public SourceAsset AddAsset (string guid, string path, string name) {
-            if (string.IsNullOrEmpty (guid)) {
-                Debug.LogWarning ("Source asset guid is invalid." + name);
-            }
-            if (string.IsNullOrEmpty (path)) {
-                Debug.LogWarning ("Source asset path is invalid." + path);
-            }
-            if (string.IsNullOrEmpty (name)) {
-                Debug.LogWarning ("Source asset name is invalid." + name);
-            }
-            SourceAsset asset = GetAsset (name);
-            if (asset != null) {
-                Debug.LogWarning (string.Format ("Source asset '{0}' is already exist.", name));
-            }
-            asset = new SourceAsset (guid, path, name, this);
-            m_Assets.Add (asset);
-            return asset;
-        }
-    }
+    
     public enum AssetSorterType {
         Path,
         Name,
@@ -163,10 +18,8 @@ public class AssetBundleEditorControllerNew {
         private readonly AssetBundleCollEctionNew.AssetBundleCollection m_AssetBundleCollection;
         private readonly List<string> m_SourceAssetSearchPaths;
         private readonly List<string> m_SourceAssetSearchRelativePaths;
-        private readonly Dictionary<string, SourceAsset> m_SourceAssets;
 
         private readonly AssetBundleCollEctionNew.Asset m_assetRoot;
-        private SourceFolder m_SourceAssetRoot;
         private string m_SourceAssetRootPath;
         private string m_sourceAssetUnionTypeFilter;
         private string m_sourceAssetUnionLabelFilter;
@@ -178,18 +31,22 @@ public class AssetBundleEditorControllerNew {
             m_AssetBundleCollection = new AssetBundleCollEctionNew.AssetBundleCollection ();
             m_SourceAssetSearchPaths = new List<string> ();
             m_SourceAssetSearchRelativePaths = new List<string> ();
-            m_SourceAssets = new Dictionary<string, SourceAsset> ();
-            m_SourceAssetRoot = null;
             m_SourceAssetRootPath = null;
             m_sourceAssetUnionTypeFilter = null;
             m_sourceAssetUnionLabelFilter = null;
             m_sourceAssetExceptLableFilter = null;
             m_sourceAssetExceptTypeFilter = null;
             m_AssetSorter = AssetSorterType.Path;
-
+            string guid = AssetDatabase.GUIDToAssetPath(DefaultSourceAssetRootPath);
             SourceAssetRootPath = DefaultSourceAssetRootPath;
-            m_assetRoot = AssetBundleCollEctionNew.Asset.Create (DefaultSourceAssetRootPath);
+
+            m_assetRoot = AssetBundleCollEctionNew.Asset.Create (guid, DefaultSourceAssetRootPath);
             //m_SourceAssetRootPath
+        }
+        public AssetBundleCollEctionNew.AssetBundleInfo GetAssetBundleInfo
+        {
+            get { return m_AssetBundleCollection.GetAssetBundleInfo; }
+            set { m_AssetBundleCollection.GetAssetBundleInfo = value; }
         }
         public int AssetBundleCount {
             get {
@@ -201,11 +58,7 @@ public class AssetBundleEditorControllerNew {
                 return m_AssetBundleCollection.assetcount;
             }
         }
-        public SourceFolder SourceAssetRoot {
-            get {
-                return m_SourceAssetRoot;
-            }
-        }
+       
         public AssetBundleCollEctionNew.Asset AssetRoot
         {
             get
@@ -222,7 +75,7 @@ public class AssetBundleEditorControllerNew {
                     return;
                 }
                 m_SourceAssetRootPath = value.Replace ('\\', '/');
-                m_SourceAssetRoot = new SourceFolder (m_SourceAssetRootPath, null);
+              
                 RefreshSourceAssetSearchPaths ();
             }
         }
@@ -285,6 +138,7 @@ public class AssetBundleEditorControllerNew {
 
         public bool Load () {
 
+            
             if (!File.Exists (m_ConfigurationPath)) {
                 return false;
             }
@@ -338,66 +192,13 @@ public class AssetBundleEditorControllerNew {
                 File.Delete (m_ConfigurationPath);
                 return false;
             }
-
+            
             ScanSourceAssets ();
             m_AssetBundleCollection.Load ();
+            
             return true;
         }
         public bool Save () {
-            try {
-                XmlDocument xmlDocument = new XmlDocument ();
-                xmlDocument.AppendChild (xmlDocument.CreateXmlDeclaration ("1.0", "UTF-8", null));
-                XmlElement xmlRoot = xmlDocument.CreateElement ("UnityTsianFramework");
-                xmlDocument.AppendChild (xmlRoot);
-                XmlElement xmleditor = xmlDocument.CreateElement ("AssetBundleEditor");
-                xmlRoot.AppendChild (xmleditor);
-                XmlElement xmlSettings = xmlDocument.CreateElement ("Settings");
-                xmleditor.AppendChild (xmlSettings);
-                XmlElement xmlElement = null;
-                XmlAttribute xmlAttribute = null;
-                xmlElement = xmlDocument.CreateElement ("SourceAssetRootPath");
-                xmlElement.InnerText = SourceAssetRootPath.ToString ();
-                xmlSettings.AppendChild (xmlElement);
-
-                xmlElement = xmlDocument.CreateElement ("SourceAssetSearchPaths");
-                xmlSettings.AppendChild (xmlElement);
-                foreach (string sourceAssetSearchRelativePath in m_SourceAssetSearchRelativePaths) {
-                    XmlElement xmlElementInner = xmlDocument.CreateElement ("SourceAssetSearchPath");
-                    xmlAttribute = xmlDocument.CreateAttribute ("RelativePath");
-                    xmlAttribute.Value = sourceAssetSearchRelativePath;
-                    xmlElementInner.Attributes.SetNamedItem (xmlAttribute);
-                    xmlElement.AppendChild (xmlElementInner);
-                }
-                xmlElement = xmlDocument.CreateElement ("SourceAssetUnionTypeFilter");
-                xmlElement.InnerText = SourceAssetUnionTypeFilter ?? string.Empty;
-                xmlSettings.AppendChild (xmlElement);
-                xmlElement = xmlDocument.CreateElement ("SourceAssetUnionLabelFilter");
-                xmlElement.InnerText = SourceAssetUnionLabelFilter ?? string.Empty;
-                xmlSettings.AppendChild (xmlElement);
-                xmlElement = xmlDocument.CreateElement ("SourceAssetExceptTypeFilter");
-                xmlElement.InnerText = SourceAssetExceptTypeFilter ?? string.Empty;
-                xmlSettings.AppendChild (xmlElement);
-                xmlElement = xmlDocument.CreateElement ("SourceAssetExceptLabelFilter");
-                xmlElement.InnerText = SourceAssetExceptLabelFilter ?? string.Empty;
-                xmlSettings.AppendChild (xmlElement);
-                xmlElement = xmlDocument.CreateElement ("AssetSorter");
-                xmlElement.InnerText = AssetSorter.ToString ();
-                xmlSettings.AppendChild (xmlElement);
-
-                string configurationDirectoryName = Path.GetDirectoryName (m_ConfigurationPath);
-                if (!Directory.Exists (configurationDirectoryName)) {
-                    Directory.CreateDirectory (configurationDirectoryName);
-                }
-
-                xmlDocument.Save (m_ConfigurationPath);
-                AssetDatabase.Refresh ();
-            } catch {
-                if (File.Exists (m_ConfigurationPath)) {
-                    File.Delete (m_ConfigurationPath);
-                }
-
-                return false;
-            }
             return m_AssetBundleCollection.Save ();
         }
         public AssetBundleCollEctionNew.AssetBundle[] GetAssetBundles () {
@@ -417,22 +218,7 @@ public class AssetBundleEditorControllerNew {
         public bool RenameAssetBundle (string oldAssetBundleName, string oldAssetBundleVariant, string newAssetBundleName, string newAssetBundleVariant) {
             return m_AssetBundleCollection.RenameAssetBundle (oldAssetBundleName, oldAssetBundleVariant, newAssetBundleName, newAssetBundleVariant);
         }
-        public bool RemoveAssetBundle (string assetBundleName, string assetBundleVariant) {
-            AssetBundleCollEctionNew.Asset[] assetsToRemove = m_AssetBundleCollection.Getassets (assetBundleName, assetBundleVariant);
-            if (m_AssetBundleCollection.RemoveAssetBundle (assetBundleName, assetBundleVariant)) {
-                List<SourceAsset> unassignedSourceAssets = new List<SourceAsset> ();
-                foreach (AssetBundleCollEctionNew.Asset asset in assetsToRemove) {
-                    SourceAsset sourceAsset = GetSourceAsset (asset.Guid);
-                    if (sourceAsset != null) {
-                        unassignedSourceAssets.Add (sourceAsset);
-                    }
-                }
-
-                return true;
-            }
-
-            return false;
-        }
+       
 
         public bool SetAssetBundleLoadType (string assetBundleName, string assetBundleVariant) {
             return m_AssetBundleCollection.SetAssetBundleLoadType (assetBundleName, assetBundleVariant);
@@ -447,19 +233,7 @@ public class AssetBundleEditorControllerNew {
             return removeAssetBundles.Count;
         }
         public AssetBundleCollEctionNew.Asset[] GetAssets (string assetBundleName, string assetBundleVariant) {
-            List<AssetBundleCollEctionNew.Asset> assets = new List<AssetBundleCollEctionNew.Asset> (m_AssetBundleCollection.Getassets (assetBundleName, assetBundleVariant));
-            switch (AssetSorter) {
-                case AssetSorterType.Path:
-                    assets.Sort (AssetPathComparer);
-                    break;
-                case AssetSorterType.Name:
-                    assets.Sort (AssetNameComparer);
-                    break;
-                case AssetSorterType.Guid:
-                    assets.Sort (AssetGuidComparer);
-                    break;
-            }
-
+            List<AssetBundleCollEctionNew.Asset> assets = new List<AssetBundleCollEctionNew.Asset> (m_AssetBundleCollection.Getassets (assetBundleName, assetBundleVariant));          
             return assets.ToArray ();
         }
         public AssetBundleCollEctionNew.Asset GetAsset (string assetGuid) {
@@ -474,44 +248,18 @@ public class AssetBundleEditorControllerNew {
 
             return false;
         }
-        public bool UnassignAsset (string assetGuid) {
-            if (m_AssetBundleCollection.UnassignAsset (assetGuid)) {
-                SourceAsset sourceAsset = GetSourceAsset (assetGuid);
-                if (sourceAsset != null) {
-
-                }
-
+       
+        public bool UnassignAsset(string assetGuid)
+        {
+            if (m_AssetBundleCollection.UnassignAsset(assetGuid))
+            {
                 return true;
             }
-
             return false;
         }
-
-        public int RemoveUnknownAssets () {
-            List<AssetBundleCollEctionNew.Asset> assets = new List<AssetBundleCollEctionNew.Asset> (m_AssetBundleCollection.Getassets ());
-            List<AssetBundleCollEctionNew.Asset> removeAssets = assets.FindAll (asset => GetSourceAsset (asset.Guid) == null);
-            foreach (AssetBundleCollEctionNew.Asset asset in removeAssets) {
-                m_AssetBundleCollection.UnassignAsset (asset.Guid);
-            }
-
-            return removeAssets.Count;
-        }
-        public SourceAsset GetSourceAsset (string assetGuid) {
-            if (string.IsNullOrEmpty (assetGuid)) {
-                return null;
-            }
-
-            SourceAsset sourceAsset = null;
-            if (m_SourceAssets.TryGetValue (assetGuid, out sourceAsset)) {
-                return sourceAsset;
-            }
-
-            return null;
-        }
+        
         public void ScanSourceAssets () {
-            m_SourceAssets.Clear ();
-            m_SourceAssetRoot.Clear ();
-
+           
             string[] sourceAssetSearchPaths = m_SourceAssetSearchPaths.ToArray ();
             HashSet<string> tempGuids = new HashSet<string> ();
             tempGuids.UnionWith (AssetDatabase.FindAssets (SourceAssetUnionTypeFilter, sourceAssetSearchPaths));
@@ -529,31 +277,14 @@ public class AssetBundleEditorControllerNew {
                 string[] splitedpath = assetPath.Split ('/');
                 AssetBundleCollEctionNew.Asset assetroot = m_assetRoot;
                 for (int i = 0; i < splitedpath.Length; i++) {
+
                     AssetBundleCollEctionNew.Asset subasset = assetroot.GetAsset (splitedpath[i]);
                     if (subasset == null) {
-                        assetroot = assetroot.AddAsset (splitedpath[i]);
+                        assetroot = assetroot.AddAsset (splitedpath[i], assetguid);
                     } else {
                         assetroot = subasset;
                     }
                 }
-            }
-            foreach (string assetGuid in assetGuids) {
-                string fullPath = AssetDatabase.GUIDToAssetPath (assetGuid);
-                if (AssetDatabase.IsValidFolder (fullPath)) {
-                    // Skip folder.
-                    continue;
-                }
-
-                string assetPath = fullPath.Substring (SourceAssetRootPath.Length + 1);
-                string[] splitedPath = assetPath.Split ('/');
-                SourceFolder folder = m_SourceAssetRoot;
-                for (int i = 0; i < splitedPath.Length - 1; i++) {
-                    SourceFolder subFolder = folder.GetFolder (splitedPath[i]);
-                    folder = subFolder == null ? folder.AddFolder (splitedPath[i]) : subFolder;
-                }
-
-                SourceAsset asset = folder.AddAsset (assetGuid, fullPath, splitedPath[splitedPath.Length - 1]);
-                m_SourceAssets.Add (asset.Guid, asset);
             }
         }
         private void RefreshSourceAssetSearchPaths () {
@@ -569,68 +300,7 @@ public class AssetBundleEditorControllerNew {
                 m_SourceAssetSearchPaths.Add (m_SourceAssetRootPath);
             }
         }
-        private int AssetPathComparer (AssetBundleCollEctionNew.Asset a, AssetBundleCollEctionNew.Asset b) {
-            SourceAsset sourceAssetA = GetSourceAsset (a.Guid);
-            SourceAsset sourceAssetB = GetSourceAsset (b.Guid);
-
-            if (sourceAssetA != null && sourceAssetB != null) {
-                return sourceAssetA.Path.CompareTo (sourceAssetB.Path);
-            }
-
-            if (sourceAssetA == null && sourceAssetB == null) {
-                return a.Guid.CompareTo (b.Guid);
-            }
-
-            if (sourceAssetA == null) {
-                return -1;
-            }
-
-            if (sourceAssetB == null) {
-                return 1;
-            }
-
-            return 0;
-        }
-        private int AssetNameComparer (AssetBundleCollEctionNew.Asset a, AssetBundleCollEctionNew.Asset b) {
-            SourceAsset sourceAssetA = GetSourceAsset (a.Guid);
-            SourceAsset sourceAssetB = GetSourceAsset (b.Guid);
-
-            if (sourceAssetA != null && sourceAssetB != null) {
-                return sourceAssetA.Name.CompareTo (sourceAssetB.Name);
-            }
-
-            if (sourceAssetA == null && sourceAssetB == null) {
-                return a.Guid.CompareTo (b.Guid);
-            }
-
-            if (sourceAssetA == null) {
-                return -1;
-            }
-
-            if (sourceAssetB == null) {
-                return 1;
-            }
-
-            return 0;
-        }
-        private int AssetGuidComparer (AssetBundleCollEctionNew.Asset a, AssetBundleCollEctionNew.Asset b) {
-            SourceAsset sourceAssetA = GetSourceAsset (a.Guid);
-            SourceAsset sourceAssetB = GetSourceAsset (b.Guid);
-
-            if (sourceAssetA != null && sourceAssetB != null || sourceAssetA == null && sourceAssetB == null) {
-                return a.Guid.CompareTo (b.Guid);
-            }
-
-            if (sourceAssetA == null) {
-                return -1;
-            }
-
-            if (sourceAssetB == null) {
-                return 1;
-            }
-
-            return 0;
-        }
+        
 
     }
 }
