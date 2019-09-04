@@ -9,14 +9,14 @@ public class AssetBundleBuilder :  EditorWindow{
     const string ENTRY = "SSRAB";
     const string OUTPUT_PATH = "";
     const string suffix = ".dj";
-
+    const string depenstr = "dependcies";
     static void build_target(BuildTarget target,string foldername)
     {
         string parth = TsianFramework.Utility.Path.GetCombinePath(Application.dataPath, "../../");
         parth = Path.GetFullPath(parth);
         string output = Path.Combine(parth, ENTRY+"/"+foldername);
         string m_ConfigurationPath = TsianFramework.Utility.Path.GetCombinePath(Application.dataPath, "App/Configs/ABT.yaml");
-
+        string depenpath = TsianFramework.Utility.Path.GetCombinePath(Application.dataPath, depenstr+".manifest");
         BuildAssetBundleOptions option = BuildAssetBundleOptions.DeterministicAssetBundle;
         option |= BuildAssetBundleOptions.StrictMode;
         option |= BuildAssetBundleOptions.ChunkBasedCompression;
@@ -27,6 +27,7 @@ public class AssetBundleBuilder :  EditorWindow{
         Directory.CreateDirectory(output);
         var abi = parse(m_ConfigurationPath);
         List< AssetBundleBuild> abb =new List<AssetBundleBuild>();
+        List<string> depen = new List<string>();
         foreach (var x in abi.AssetBundles)
         {
             int j = 0;
@@ -51,9 +52,17 @@ public class AssetBundleBuilder :  EditorWindow{
             foreach (var z in tmp)
             {
                 bb.assetNames[j++] = z.Key;
+                depen.Add(z.Key);
             }
             abb.Add( bb);
         }
+        Dependencies dependencies = new Dependencies();
+        dependencies.build(depen,depenpath);
+        var depena = new AssetBundleBuild();
+        depena.assetNames = new string[1];
+        depena.assetBundleName = depenstr+suffix;
+        depena.assetNames[0] = "Assets/"+depenstr+".manifest";
+        abb.Add(depena);
         BuildPipeline.BuildAssetBundles(output, abb.ToArray(), option, target);
         AssetDatabase.Refresh();
         Debug.Log("ABT build finish:" + output);
